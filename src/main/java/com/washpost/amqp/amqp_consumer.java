@@ -1,8 +1,3 @@
-package com.washpost.amqp;
-
-/**
- * Created by root on 6/30/14.
- */
 
 import java.io.UnsupportedEncodingException;
 import java.net.UnknownHostException;
@@ -12,16 +7,17 @@ import java.io.IOException;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DB;
 import com.mongodb.DBCollection;
-import static com.mongodb.util.JSON.parse;
 import com.mongodb.MongoClient;
+import com.mongodb.MongoCredential;
+import com.mongodb.ServerAddress;
+import com.mongodb.util.JSON;
 import com.mongodb.util.JSONParseException;
 import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.QueueingConsumer;
 import java.net.URLDecoder;
-
-
+import java.util.Arrays;
 
 
 /**
@@ -32,10 +28,16 @@ public class amqp_consumer {
 
     public static void main(String[] argv) throws IOException, InterruptedException {
 
-        MongoClient mongoclient = new MongoClient("localhost");
-        DB db = mongoclient.getDB("mydb");
+        MongoClient mongoclient = new MongoClient("10.128.134.151");
+        DB db = mongoclient.getDB("rumds");
+	boolean auth = db.authenticate("rumds_user", "xcmhA2kTUWGue5JlAp6R".toCharArray());
+	if(!auth){
+		System.err.println("Login failed!");
+		return;
+	}
 
-        DBCollection coll = db.getCollection("testData");
+
+        DBCollection coll = db.getCollection("rumetrics");
 
         ConnectionFactory factory = new ConnectionFactory();
         factory.setHost("10.128.136.170");
@@ -50,7 +52,7 @@ public class amqp_consumer {
         channel.queueBind(queueName, EXCHANGE_NAME, "");
 
         System.out.println(" [*] Waiting for messages. To exit press CTRL+C");
-
+	
         channel.basicQos(1);
 
         QueueingConsumer consumer = new QueueingConsumer(channel);
@@ -65,10 +67,12 @@ public class amqp_consumer {
             BasicDBObject doc = null;
             String decoded = null;
             try{
+		String[] tokens=message.split("DELIMITER");
                 //decode
-                decoded = URLDecoder.decode(message, "UTF-8");
+                decoded = URLDecoder.decode(tokens[0], "UTF-8");
                 //parse to json
-                doc = (BasicDBObject)parse(decoded);
+                doc = (BasicDBObject)JSON.parse(decoded);
+		doc = doc.append("referer", tokens[1]).append("ua", tokens[2]).append("createdAt", tokens[3]);
             }
             catch(UnsupportedEncodingException uee){
                 System.err.println("ERROR: Character decoding error.");
@@ -84,7 +88,7 @@ public class amqp_consumer {
 
             if(doc!=null) {
                 coll.insert(doc);
-                System.out.println(" [x] Inserted to MongoDB: " + decoded);
+                System.out.println(" [x] Inserted to MongoDB: " + doc.toString());
             }
             else{
                 System.out.println(" [x] No json data found");
