@@ -1,6 +1,9 @@
 amqp-consumer
 =============
-forward data into mongodb
+Forward data into mongodb<br />
 
+Use Following command to run the program:<br />
+mvn clean<br />
 mvn package<br />
-java -cp target/amqp-1.0-SNAPSHOT.r com.washpost.amqp.amqp_consumer
+java -cp target/amqp-1.0-SNAPSHOT.jar com.washpost.amqp.amqp_consumer<br />
+(or java -cp target/amqp-1.0-SNAPSHOT.jar amqp_consumer)
