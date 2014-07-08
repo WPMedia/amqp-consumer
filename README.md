@@ -1,6 +1,7 @@
 amqp-consumer
 =============
 Forward data into mongodb<br />
+Require Maven to run the program<br />
 
 Use Following command to run the program:<br />
 mvn clean<br />
