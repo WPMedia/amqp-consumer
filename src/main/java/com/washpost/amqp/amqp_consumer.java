@@ -72,7 +72,7 @@ public class amqp_consumer {
                 decoded = URLDecoder.decode(tokens[0], "UTF-8");
                 //parse to json
                 doc = (BasicDBObject)JSON.parse(decoded);
-		doc = doc.append("referer", tokens[1]).append("ua", tokens[2]).append("createdAt", tokens[3]);
+		doc = doc.append("referer", tokens[1]).append("ua", tokens[2]).append("createdAt", tokens[3]).append("clientIP", tokens[4]);
             }
             catch(UnsupportedEncodingException uee){
                 System.err.println("ERROR: Character decoding error.");
