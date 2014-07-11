@@ -11,10 +11,16 @@ import com.sun.corba.se.spi.activation.*;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.net.URLDecoder;
 import java.util.Arrays;
+import java.util.Date;
+import java.text.SimpleDateFormat;
+import java.text.ParseException;
+import java.text.DateFormat;
 
-
+import com.google.gson.Gson;
 /**
  * Created by Alan on 6/27/14.
  */
@@ -23,6 +29,17 @@ public class Consumer {
     private static final String EXCHANGE_NAME = "rumExchange";
 
     public static void main(String[] argv) throws IOException, InterruptedException {
+	//read property list
+	Gson gson = new Gson();
+	Property prop;
+	try{
+		BufferedReader br = new BufferedReader(new FileReader(argv[0]));
+		prop = gson.fromJson(br, Property.class);
+	}
+	catch(IOException e){
+		e.printStackTrace();
+		return;
+	}
 
         /* MongoDB Connecty bits */
         MongoClientOptions clientOptions = new MongoClientOptions.Builder()
@@ -31,17 +48,20 @@ public class Consumer {
                 .threadsAllowedToBlockForConnectionMultiplier(10)
                 .readPreference(ReadPreference.secondaryPreferred(new BasicDBObject("type", "highIO")))
                 .build();
-        ServerAddress serverAddress = new ServerAddress("10.128.134.151");
-        MongoCredential credential = MongoCredential.createMongoCRCredential("rumds_user", "rumds", "xcmhA2kTUWGue5JlAp6R".toCharArray());
+        ServerAddress serverAddress = new ServerAddress(prop.getMongoIP());
+        MongoCredential credential = MongoCredential.createMongoCRCredential(
+		prop.getMongoUser(), 
+		prop.getMongoSource(), 
+		prop.getMongoPassword().toCharArray());
         MongoClient mongoClient = new MongoClient(serverAddress, Arrays.asList(credential), clientOptions);
-        DB db = mongoClient.getDB("rumds");
-        DBCollection coll = db.getCollection("rumetrics");
+        DB db = mongoClient.getDB(prop.getMongoSource());
+        DBCollection coll = db.getCollection(prop.getMongoColl());
 
         /* RabbitMQ Connecty Bits */
         ConnectionFactory factory = new ConnectionFactory();
-        factory.setHost("10.128.136.170");
-        factory.setUsername("rum");
-        factory.setPassword("rum");
+        factory.setHost(prop.getAMQPIP());
+        factory.setUsername(prop.getAMQPUser());
+        factory.setPassword(prop.getAMQPPassword());
         Connection connection = factory.newConnection();
         Channel channel = connection.createChannel();
         channel.exchangeDeclare(EXCHANGE_NAME, "fanout");
@@ -68,7 +88,10 @@ public class Consumer {
                 decoded = URLDecoder.decode(tokens[0], "UTF-8");
                 //parse to json
                 doc = (BasicDBObject) JSON.parse(decoded);
-                doc = doc.append("referer", tokens[1]).append("ua", tokens[2]).append("createdAt", tokens[3]).append("clientIP", tokens[4]);
+		//parse date
+		DateFormat format = new SimpleDateFormat("E, dd MMM yyyy HH:mm:ss");
+		Date date = format.parse(tokens[3]);
+                doc = doc.append("referer", tokens[1]).append("ua", tokens[2]).append("createdAt", date).append("clientIP", tokens[4]);
             } catch (UnsupportedEncodingException uee) {
                 System.err.println("ERROR: Character decoding error.");
                 uee.printStackTrace();
