@@ -16,6 +16,9 @@ import java.io.FileReader;
 import java.net.URLDecoder;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.logging.ConsoleHandler;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.text.SimpleDateFormat;
 import java.text.ParseException;
 import java.text.DateFormat;
@@ -25,10 +28,12 @@ import com.google.gson.Gson;
  * Created by Alan on 6/27/14.
  */
 public class Consumer {
-
+    private static Logger logger = Logger.getLogger(Consumer.class.getName());
     private static final String EXCHANGE_NAME = "rumExchange";
 
     public static void main(String[] argv) throws IOException, InterruptedException {
+        logger.addHandler(new ConsoleHandler());
+
 	//read property list
 	Gson gson = new Gson();
 	Property prop;
@@ -50,10 +55,12 @@ public class Consumer {
                 .build();
         ServerAddress serverAddress = new ServerAddress(prop.getMongoIP());
         MongoCredential credential = MongoCredential.createMongoCRCredential(
-		prop.getMongoUser(), 
-		prop.getMongoSource(), 
+		prop.getMongoUser(),
+		prop.getMongoSource(),
 		prop.getMongoPassword().toCharArray());
         MongoClient mongoClient = new MongoClient(serverAddress, Arrays.asList(credential), clientOptions);
+        //for local use
+        mongoClient = new MongoClient();
         DB db = mongoClient.getDB(prop.getMongoSource());
         DBCollection coll = db.getCollection(prop.getMongoColl());
 
@@ -66,6 +73,7 @@ public class Consumer {
         Channel channel = connection.createChannel();
         channel.exchangeDeclare(EXCHANGE_NAME, "fanout");
         String queueName = "rumQueue";
+        channel.queueDeclare(queueName, true, false, false, null);
         channel.queueBind(queueName, EXCHANGE_NAME, "");
         System.out.println(" [*] Waiting for messages. To exit press CTRL+C");
 
@@ -93,13 +101,11 @@ public class Consumer {
 		Date date = format.parse(tokens[3]);
                 doc = doc.append("referer", tokens[1]).append("ua", tokens[2]).append("createdAt", date).append("clientIP", tokens[4]);
             } catch (UnsupportedEncodingException uee) {
-                System.err.println("ERROR: Character decoding error.");
-                uee.printStackTrace();
+                logger.log(Level.SEVERE, "UnsupportedEncodingException: ", uee);
             } catch (JSONParseException jpe) {
-                System.err.println("ERROR: Not valid JSON");
-                jpe.printStackTrace();
+                logger.log(Level.SEVERE, "JSONParseException", jpe);
             } catch (Exception e) {
-                System.err.println("ERROR");
+                logger.log(Level.SEVERE, "Unexpected Error", e);
             }
 
             if (doc != null) {
