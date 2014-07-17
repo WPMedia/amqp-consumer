@@ -59,10 +59,6 @@ public class Consumer {
 		prop.getMongoSource(),
 		prop.getMongoPassword().toCharArray());
         MongoClient mongoClient = new MongoClient(serverAddress, Arrays.asList(credential), clientOptions);
-        //for local use
-        mongoClient = new MongoClient();
-        DB db = mongoClient.getDB(prop.getMongoSource());
-        DBCollection coll = db.getCollection(prop.getMongoColl());
 
         /* RabbitMQ Connecty Bits */
         ConnectionFactory factory = new ConnectionFactory();
