@@ -1,6 +1,6 @@
 package com.washingtonpost.amqp;
 
-import com.google.gson.Gson;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mongodb.*;
 import com.mongodb.util.JSON;
 import com.mongodb.util.JSONParseException;
@@ -30,20 +30,27 @@ public class Consumer {
     private static Logger logger = Logger.getLogger(Consumer.class.getName());
 
     public static void main(String[] argv) throws IOException, InterruptedException {
-        logger.addHandler(new ConsoleHandler());
+
 
         //read property list
         String filename = argv[0];
 
-        Gson gson = new Gson();
+        ObjectMapper mapper = new ObjectMapper();
+
         Property prop;
+
         try {
             BufferedReader br = new BufferedReader(new FileReader(filename));
-            prop = gson.fromJson(br, Property.class);
+            prop = mapper.readValue(br, Property.class);
         } catch (IOException e) {
             e.printStackTrace();
             return;
         }
+
+        /* First, we'll set up the logger */
+        // We're going to try to set log level as a command line option
+        logger.setLevel(Level.parse(prop.getLogLevel()));
+        logger.addHandler(new ConsoleHandler());
 
         /* MongoDB Connecty bits */
         MongoClientOptions clientOptions = new MongoClientOptions.Builder()
@@ -55,10 +62,10 @@ public class Consumer {
         ServerAddress serverAddress = new ServerAddress(prop.getMongoIP());
         MongoCredential credential = MongoCredential.createMongoCRCredential(
                 prop.getMongoUser(),
-                prop.getMongoSource(),
+                prop.getMongoDatabase(),
                 prop.getMongoPassword().toCharArray());
         MongoClient mongoClient = new MongoClient(serverAddress, Arrays.asList(credential), clientOptions);
-        DB db = mongoClient.getDB(prop.getMongoSource());
+        DB db = mongoClient.getDB(prop.getMongoDatabase());
         DBCollection coll = db.getCollection(prop.getMongoColl());
 
         /* RabbitMQ Connecty Bits */
