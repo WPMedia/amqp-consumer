@@ -68,6 +68,7 @@ public class Consumer {
 		prop.getMongoSource(),
 		prop.getMongoPassword().toCharArray());
         MongoClient mongoClient = new MongoClient(serverAddress, Arrays.asList(credential), clientOptions);
+        
         //for local use
         mongoClient = new MongoClient();
         DB db = mongoClient.getDB(prop.getMongoSource());
@@ -112,18 +113,19 @@ public class Consumer {
                         doc.put(pairs[0], null);
                         continue;
                     }
-                    if(pairs[0].equals("createdAt")){
+                    if(pairs[0].equals("rum")){
+                        //rum data should come first!
+                        doc= (BasicDBObject) JSON.parse(pairs[1]);
+                    }
+                    else if(pairs[0].equals("createdAt")){
                         try{
-                            DateFormat format = new SimpleDateFormat("yyy-MM-dd'T'HH:mm:ssXXX");
+                            DateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX");
                             Date date=format.parse(pairs[1]);
                             doc.put(pairs[0], date);
                         }
                         catch (Exception e){
                             logger.log(Level.SEVERE, "Date parsing exception", e);
                         }
-                    }
-                    else if(pairs[0].equals("rum")){
-                        doc.put(pairs[0], (BasicDBObject) JSON.parse(pairs[1]));
                     }
                     else{
                         doc.put(pairs[0], pairs[1]);
