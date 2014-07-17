@@ -24,6 +24,7 @@ import java.text.ParseException;
 import java.text.DateFormat;
 
 import com.google.gson.Gson;
+import org.bson.BSONObject.*;
 /**
  * Created by Alan on 6/27/14.
  */
@@ -34,17 +35,25 @@ public class Consumer {
     public static void main(String[] argv) throws IOException, InterruptedException {
         logger.addHandler(new ConsoleHandler());
 
-	//read property list
-	Gson gson = new Gson();
-	Property prop;
-	try{
-		BufferedReader br = new BufferedReader(new FileReader(argv[0]));
-		prop = gson.fromJson(br, Property.class);
-	}
-	catch(IOException e){
-		e.printStackTrace();
-		return;
-	}
+        //read property list
+        String filename;
+        if(argv.length==0){
+            filename="/home/alan/property.json";
+        }
+        else{
+            filename=argv[0];
+        }
+        Gson gson = new Gson();
+        Property prop;
+        try{
+            BufferedReader br = new BufferedReader(new FileReader(filename));
+            prop = gson.fromJson(br, Property.class);
+        }
+        catch(IOException e){
+            e.printStackTrace();
+            return;
+        }
+
 
         /* MongoDB Connecty bits */
         MongoClientOptions clientOptions = new MongoClientOptions.Builder()
@@ -82,24 +91,45 @@ public class Consumer {
         QueueingConsumer consumer = new QueueingConsumer(channel);
         channel.basicConsume(queueName, false, consumer);
 
+
+
+
+
         while (true) {
             QueueingConsumer.Delivery delivery = consumer.nextDelivery();
             String message = new String(delivery.getBody());
 
             System.out.println(" [x] Received '" + message + "'");
 
-            BasicDBObject doc = null;
+            BasicDBObject doc = new BasicDBObject();
             String decoded = null;
             try {
-                String[] tokens = message.split("DELIMITER");
-                //decode
-                decoded = URLDecoder.decode(tokens[0], "UTF-8");
-                //parse to json
-                doc = (BasicDBObject) JSON.parse(decoded);
-		//parse date
-		DateFormat format = new SimpleDateFormat("E, dd MMM yyyy HH:mm:ss");
-		Date date = format.parse(tokens[3]);
-                doc = doc.append("referer", tokens[1]).append("ua", tokens[2]).append("createdAt", date).append("clientIP", tokens[4]);
+                decoded = URLDecoder.decode(message, "UTF-8");
+                String[] tokens = decoded.split("##");
+                for(String token: tokens){
+                    String[] pairs = token.split("::");
+                    if(pairs.length==1){
+                        doc.put(pairs[0], null);
+                        continue;
+                    }
+                    if(pairs[0].equals("createdAt")){
+                        try{
+                            DateFormat format = new SimpleDateFormat("yyy-MM-dd'T'HH:mm:ssXXX");
+                            Date date=format.parse(pairs[1]);
+                            doc.put(pairs[0], date);
+                        }
+                        catch (Exception e){
+                            logger.log(Level.SEVERE, "Date parsing exception", e);
+                        }
+                    }
+                    else if(pairs[0].equals("rum")){
+                        doc.put(pairs[0], (BasicDBObject) JSON.parse(pairs[1]));
+                    }
+                    else{
+                        doc.put(pairs[0], pairs[1]);
+                    }
+                }
+
             } catch (UnsupportedEncodingException uee) {
                 logger.log(Level.SEVERE, "UnsupportedEncodingException: ", uee);
             } catch (JSONParseException jpe) {
