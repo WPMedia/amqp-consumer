@@ -103,10 +103,9 @@ public class Consumer {
             System.out.println(" [x] Received '" + message + "'");
 
             BasicDBObject doc = new BasicDBObject();
-            String decoded = null;
             try {
-                decoded = URLDecoder.decode(message, "UTF-8");
-                String[] tokens = decoded.split("##");
+
+                String[] tokens = message.split("##");
                 for(String token: tokens){
                     String[] pairs = token.split("::");
                     if(pairs.length==1){
@@ -115,7 +114,8 @@ public class Consumer {
                     }
                     if(pairs[0].equals("rum")){
                         //rum data should come first!
-                        doc= (BasicDBObject) JSON.parse(pairs[1]);
+                        String decoded = URLDecoder.decode(pairs[1], "UTF-8");
+                        doc= (BasicDBObject) JSON.parse(decoded);
                     }
                     else if(pairs[0].equals("createdAt")){
                         try{
